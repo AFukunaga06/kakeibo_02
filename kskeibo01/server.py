@@ -103,7 +103,14 @@ def delete_expense(expense_id):
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    print("家計簿サーバーを起動中...")
-    print("フロントエンド: http://localhost:5000")
-    print("API エンドポイント: http://localhost:5000/api/expenses")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    import os
+    
+    # Azure App Service用のポート設定
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('DEBUG', 'False').lower() == 'true'
+    
+    print(f"家計簿サーバーを起動中... (Port: {port})")
+    print(f"フロントエンド: http://localhost:{port}")
+    print(f"API エンドポイント: http://localhost:{port}/api/expenses")
+    
+    app.run(host='0.0.0.0', port=port, debug=debug)
