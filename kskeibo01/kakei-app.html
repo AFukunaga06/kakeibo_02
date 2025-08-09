@@ -430,15 +430,62 @@
         const READONLY_PASSWORD = '0317';
         const EDIT_PASSWORD = 'r246';
 
-        // ローカルストレージからデータを読み込み
-        function loadExpenses() {
-            const expenses = localStorage.getItem('kakei-expenses');
-            return expenses ? JSON.parse(expenses) : [];
+        // サーバーからデータを読み込み
+        async function loadExpenses() {
+            try {
+                const response = await fetch('/api/expenses');
+                if (response.ok) {
+                    return await response.json();
+                } else {
+                    console.error('Failed to load expenses from server');
+                    return [];
+                }
+            } catch (error) {
+                console.error('Error loading expenses:', error);
+                return [];
+            }
         }
 
-        // ローカルストレージにデータを保存
-        function saveExpenses(expenses) {
-            localStorage.setItem('kakei-expenses', JSON.stringify(expenses));
+        // サーバーにデータを保存（新規追加用）
+        async function saveExpense(expense) {
+            try {
+                const response = await fetch('/api/expenses', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(expense)
+                });
+                
+                if (response.ok) {
+                    return await response.json();
+                } else {
+                    console.error('Failed to save expense to server');
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error saving expense:', error);
+                return null;
+            }
+        }
+
+        // サーバーからデータを削除
+        async function deleteExpenseFromServer(id) {
+            try {
+                const response = await fetch(`/api/expenses/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    return true;
+                } else {
+                    console.error('Failed to delete expense from server');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error deleting expense:', error);
+                return false;
+            }
         }
 
         // ログイン処理
@@ -480,8 +527,7 @@
             // 日付フィールドの制限を解除（過去日付も入力可能にする）
             document.getElementById('date').removeAttribute('min');
 
-            displayExpenses();
-            updateMonthlyTotal();
+            loadAndDisplayExpenses();
         }
 
         // ログアウト処理
@@ -491,8 +537,18 @@
             isEditMode = false;
         }
 
+        // 支出データを読み込んで表示
+        async function loadAndDisplayExpenses() {
+            try {
+                await displayExpenses();
+                await updateMonthlyTotal();
+            } catch (error) {
+                console.error('Error loading and displaying expenses:', error);
+            }
+        }
+
         // 支出を追加
-        function addExpense() {
+        async function addExpense() {
             const date = document.getElementById('date').value;
             const category = document.getElementById('category').value;
             const product = document.getElementById('product').value;
@@ -504,9 +560,7 @@
                 return;
             }
 
-            const expenses = loadExpenses();
             const newExpense = {
-                id: Date.now(),
                 date,
                 category,
                 product,
@@ -514,34 +568,40 @@
                 amount: parseInt(amount)
             };
 
-            expenses.push(newExpense);
-            saveExpenses(expenses);
+            // サーバーに保存
+            const savedExpense = await saveExpense(newExpense);
+            
+            if (savedExpense) {
+                // フォームをリセット
+                document.getElementById('category').value = '';
+                document.getElementById('product').value = '';
+                document.getElementById('store').value = '';
+                document.getElementById('amount').value = '';
 
-            // フォームをリセット
-            document.getElementById('category').value = '';
-            document.getElementById('product').value = '';
-            document.getElementById('store').value = '';
-            document.getElementById('amount').value = '';
-
-            displayExpenses();
+                // 表示を更新
+                await loadAndDisplayExpenses();
+            } else {
+                alert('データの保存に失敗しました');
+            }
         }
 
         // 支出を削除
-        function deleteExpense(id) {
+        async function deleteExpense(id) {
             if (!confirm('この項目を削除しますか？')) {
                 return;
             }
 
-            const expenses = loadExpenses();
-            const filteredExpenses = expenses.filter(expense => expense.id !== id);
-            saveExpenses(filteredExpenses);
-            displayExpenses();
-            updateMonthlyTotal();
+            const success = await deleteExpenseFromServer(id);
+            if (success) {
+                await loadAndDisplayExpenses();
+            } else {
+                alert('データの削除に失敗しました');
+            }
         }
 
         // 支出一覧を表示
-        function displayExpenses() {
-            const expenses = loadExpenses();
+        async function displayExpenses() {
+            const expenses = await loadExpenses();
             const tbody = document.getElementById('expense-tbody');
             const totalElement = document.getElementById('total-amount');
 
@@ -586,11 +646,11 @@
             document.getElementById('calendar-view').classList.remove('hidden');
             document.getElementById('list-view-btn').classList.remove('active');
             document.getElementById('calendar-view-btn').classList.add('active');
-            displayCalendar();
+            await displayCalendar();
         }
 
         // 月を変更
-        function changeMonth(delta) {
+        async function changeMonth(delta) {
             currentMonth += delta;
             if (currentMonth < 0) {
                 currentMonth = 11;
@@ -599,12 +659,12 @@
                 currentMonth = 0;
                 currentYear++;
             }
-            displayCalendar();
-            updateMonthlyTotal();
+            await displayCalendar();
+            await updateMonthlyTotal();
         }
 
         // カレンダーを表示
-        function displayCalendar() {
+        async function displayCalendar() {
             const calendarGrid = document.getElementById('calendar-grid');
             const calendarTitle = document.getElementById('calendar-title');
             
@@ -617,7 +677,7 @@
             const firstDayWeek = firstDay.getDay();
             const daysInMonth = lastDay.getDate();
 
-            const expenses = loadExpenses();
+            const expenses = await loadExpenses();
             
             // カレンダーをクリア
             calendarGrid.innerHTML = '';
@@ -690,8 +750,8 @@
         }
 
         // 月合計を更新
-        function updateMonthlyTotal() {
-            const expenses = loadExpenses();
+        async function updateMonthlyTotal() {
+            const expenses = await loadExpenses();
             const monthStart = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
             const monthEnd = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-31`;
             
