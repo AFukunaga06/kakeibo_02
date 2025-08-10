@@ -427,15 +427,21 @@
         let currentView = 'list'; // 'list' or 'calendar'
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
+        let cachedExpenses = null; // キャッシュ用
         const READONLY_PASSWORD = '0317';
         const EDIT_PASSWORD = 'r246';
 
         // サーバーからデータを読み込み
-        async function loadExpenses() {
+        async function loadExpenses(forceReload = false) {
+            if (cachedExpenses && !forceReload) {
+                return cachedExpenses;
+            }
+            
             try {
                 const response = await fetch('/api/expenses');
                 if (response.ok) {
-                    return await response.json();
+                    cachedExpenses = await response.json();
+                    return cachedExpenses;
                 } else {
                     console.error('Failed to load expenses from server');
                     return [];
@@ -540,7 +546,13 @@
         // 支出データを読み込んで表示
         async function loadAndDisplayExpenses() {
             try {
-                await displayExpenses();
+                // データを一度だけ読み込む
+                const expenses = await loadExpenses(true);
+                if (currentView === 'list') {
+                    await displayExpenses();
+                } else {
+                    await displayCalendar();
+                }
                 await updateMonthlyTotal();
             } catch (error) {
                 console.error('Error loading and displaying expenses:', error);
@@ -572,6 +584,9 @@
             const savedExpense = await saveExpense(newExpense);
             
             if (savedExpense) {
+                // キャッシュを無効化
+                cachedExpenses = null;
+                
                 // フォームをリセット
                 document.getElementById('category').value = '';
                 document.getElementById('product').value = '';
@@ -593,6 +608,8 @@
 
             const success = await deleteExpenseFromServer(id);
             if (success) {
+                // キャッシュを無効化
+                cachedExpenses = null;
                 await loadAndDisplayExpenses();
             } else {
                 alert('データの削除に失敗しました');
@@ -640,7 +657,7 @@
         }
 
         // 表示をカレンダーに切り替え
-        function showCalendarView() {
+        async function showCalendarView() {
             currentView = 'calendar';
             document.getElementById('expense-list').classList.add('hidden');
             document.getElementById('calendar-view').classList.remove('hidden');
@@ -741,11 +758,13 @@
             // 次月の先頭日付を追加（42マス埋めるため）
             const totalCells = calendarGrid.children.length;
             const cellsNeeded = 49; // 7日 x 7行（ヘッダー含む）
-            for (let date = 1; totalCells < cellsNeeded; date++) {
+            let nextMonthDate = 1;
+            while (calendarGrid.children.length < cellsNeeded && nextMonthDate <= 14) {
                 const day = document.createElement('div');
                 day.className = 'calendar-day other-month';
-                day.innerHTML = `<div class="day-number">${date}</div>`;
+                day.innerHTML = `<div class="day-number">${nextMonthDate}</div>`;
                 calendarGrid.appendChild(day);
+                nextMonthDate++;
             }
         }
 
