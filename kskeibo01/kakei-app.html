@@ -433,7 +433,7 @@
         // サーバーからデータを読み込み
         async function loadExpenses() {
             try {
-                const response = await fetch('/api/expenses');
+                const response = await fetch(`${window.location.origin}/api/expenses`);
                 if (response.ok) {
                     return await response.json();
                 } else {
@@ -449,7 +449,7 @@
         // サーバーにデータを保存（新規追加用）
         async function saveExpense(expense) {
             try {
-                const response = await fetch('/api/expenses', {
+                const response = await fetch(`${window.location.origin}/api/expenses`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -472,7 +472,7 @@
         // サーバーからデータを削除
         async function deleteExpenseFromServer(id) {
             try {
-                const response = await fetch(`/api/expenses/${id}`, {
+                const response = await fetch(`${window.location.origin}/api/expenses/${id}`, {
                     method: 'DELETE'
                 });
                 
@@ -640,7 +640,7 @@
         }
 
         // 表示をカレンダーに切り替え
-        function showCalendarView() {
+        async function showCalendarView() {
             currentView = 'calendar';
             document.getElementById('expense-list').classList.add('hidden');
             document.getElementById('calendar-view').classList.remove('hidden');
